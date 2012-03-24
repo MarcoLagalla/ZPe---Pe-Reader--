@@ -3,44 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fstream>
-#define EDIT1       101
-#define EDIT2       102
-#define BUTTON1     103
-#define LABEL1      104
-#define LABEL2      105
-#define LIST1       106
-#define BUTTON2     107
-#define LABEL3      108
-#define LABEL4      109
-#define LABEL5      110
-#define LABEL6      111
-#define LABEL7      112
-#define LABEL8      113
-#define LABEL9      114
-#define LABEL10     115
-#define LABEL11     116
-#define LABEL12     117
-#define LABEL13     118
-#define LABEL14     119
-#define BUTTON3     120
-#define LABEL15     121
-#define LABEL16     122
-#define LABEL17     123
-#define EDIT3       124
-#define LABEL18     125
-#define EDIT4       126
-#define LABEL19     127
-#define LABEL20     128
-#define BUTTON4     129
-#define EDIT5       130
-#define EDIT6       131
-#define LABEL21     132
-#define LABEL22     133
-#define LABEL23     134
-#define LENGTH      1024
-#define BUTTON5     135
-#define BUTTON6     136
-#define EDIT7       137
+#include "define.h"
 char *strings1;
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
@@ -167,7 +130,7 @@ SendDlgItemMessage(hwnd,EDIT2,EM_SETREADONLY,(WPARAM)true,(LPARAM)0);
 SendDlgItemMessage(hwnd,EDIT3,EM_SETREADONLY,(WPARAM)true,(LPARAM)0);
 SendDlgItemMessage(hwnd,EDIT4,EM_SETREADONLY,(WPARAM)true,(LPARAM)0);
 /* Make the window visible on the screen */
-remove("import.txt");
+remove("import.txt"); //remove old logs if existing 
 remove("export.txt");    
 ShowWindow (hwnd, nFunsterStil);
  
@@ -417,7 +380,7 @@ x = 0;
       // passa in rassegna le funzioni
       while (Thunks[y] != 0)
       {
-         // è importata per ordinal?
+         // ï¿½ importata per ordinal?
          if (Thunks[y] & IMAGE_ORDINAL_FLAG)
          {
             fprintf(f,"Ordinal: %08X\r\n", (Thunks[y] -
@@ -470,8 +433,8 @@ Functions = (DWORD *) (RvaToOffset(ImageNtHeaders,
  
    for (x = 0; x < ImageExportDir->NumberOfFunctions; x++)
    {
-      // controllo se l'EP è 0
-      // se sì allora passa alla prossima funzione
+      // controllo se l'EP ï¿½ 0
+      // se sï¿½ allora passa alla prossima funzione
       if (Functions[x] == 0)
          continue;
  
@@ -560,7 +523,7 @@ int lent = GetWindowTextLength (GetDlgItem (hwnd, EDIT5));
    }
  
    ImageDosHeader = (IMAGE_DOS_HEADER *) BaseAddress;
-/* le signature le avevo già controllate ma lo rifaccio per 
+/* le signature le avevo giï¿½ controllate ma lo rifaccio per 
 evitare che possa insorgere qualche erorre strano */
  
    // controlliamo il Dos Header
@@ -619,7 +582,7 @@ evitare che possa insorgere qualche erorre strano */
    if (ImageSectionHeader[nSection - 1].SizeOfRawData %
     ImageNtHeaders->OptionalHeader.FileAlignment)
    {
-      // se la sezione prima di quella che vogliamo creare noi non è allineata lo faccio
+      // se la sezione prima di quella che vogliamo creare noi non ï¿½ allineata lo faccio
       ImageSectionHeader[nSection - 1].SizeOfRawData =
          CalcAlignment(ImageNtHeaders->OptionalHeader.FileAlignment,
          ImageSectionHeader[nSection - 1].SizeOfRawData);
