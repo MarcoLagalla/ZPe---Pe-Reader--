@@ -4,21 +4,21 @@
 #include <stdlib.h>
 #include <fstream>
 #include "define.h"
-char *strings1;
+
 /*  Declare Windows procedure  */
 LRESULT CALLBACK WindowProcedure (HWND, UINT, WPARAM, LPARAM);
 void AddLogLine(char *line);
 void Editor();
 DWORD RvaToOffset(IMAGE_NT_HEADERS *NT, DWORD Rva);
 DWORD CalcAlignment(DWORD Alignment, DWORD TrueSize);
-/* VARIABILI PE */
+/* GLOBAL VAR DECLARATIONS */
    HANDLE hFile;
    BYTE *BaseAddress, *ImageBase;
    WORD x,*NameOrds,nSection;
    UINT y;
    DWORD FileSize, BR, IT_Offset, ET_Offset,BRW, NameSize, Size;
    std::string log;
-   // puntatori a struttura
+   // structure pointers
    IMAGE_DOS_HEADER *ImageDosHeader; 
    IMAGE_NT_HEADERS *ImageNtHeaders;
    IMAGE_SECTION_HEADER *ImageSectionHeader;
@@ -26,13 +26,14 @@ DWORD CalcAlignment(DWORD Alignment, DWORD TrueSize);
    IMAGE_IMPORT_DESCRIPTOR *ImageImportDescr;
    IMAGE_EXPORT_DIRECTORY *ImageExportDir;
    DWORD *Thunks,*Functions,*Names;
-   char *Name,*FName;
    IMAGE_IMPORT_BY_NAME *ImgName;
    FILE *f;
    char FileName[MAX_PATH],FileName1[MAX_PATH],Sect_Name[MAX_PATH];
    char SectionName[9] = { 0 };
+   char *strings1;
+   char *Name,*FName;
    HWND hwnd;
-/* VARIABILI PE */
+
 /*  Make the class name into a global variable  */
 char szClassName[ ] = "WindowsApp";
 HWND   hBtn1,hBtn2,hEdit1,hEdit2,hLabel1,hLabel2,hLabel3,hLabel4,hLabel5,hLabel6,hLabel?7,hLabel8,hLabel9,hLabel10,hBtn5,hBtn6;
@@ -129,7 +130,7 @@ SendDlgItemMessage(hwnd,EDIT1,EM_SETREADONLY,(WPARAM)true,(LPARAM)0);
 SendDlgItemMessage(hwnd,EDIT2,EM_SETREADONLY,(WPARAM)true,(LPARAM)0);
 SendDlgItemMessage(hwnd,EDIT3,EM_SETREADONLY,(WPARAM)true,(LPARAM)0);
 SendDlgItemMessage(hwnd,EDIT4,EM_SETREADONLY,(WPARAM)true,(LPARAM)0);
-/* Make the window visible on the screen */
+
 remove("import.txt"); //remove old logs if existing 
 remove("export.txt");    
 ShowWindow (hwnd, nFunsterStil);
@@ -158,329 +159,314 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
             {
                 switch(LOWORD(wParam))
                     {
-                    case BUTTON1:{
-    SendDlgItemMessage(hwnd,BUTTON5, BN_CLICKED, (WPARAM)hBtn5,(LPARAM) hwnd);
-    OPENFILENAME ofn;
-    char szFileName[MAX_PATH] = "";
-    ZeroMemory(&ofn, sizeof(ofn));
-    ofn.lStructSize = sizeof(ofn);
-    ofn.hwndOwner = hwnd;
-    ofn.lpstrFilter = "Executables (*.exe)\0*.exe\0Dll (*.dll)\0*.dll\0";
-    ofn.lpstrFile = szFileName;
-    ofn.nMaxFile = MAX_PATH;
-    ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
-    ofn.lpstrDefExt = "";
-    if(GetOpenFileName(&ofn))
-    {
-        SetDlgItemText(hwnd,EDIT1,szFileName);
-    }
-}break;
-                    case BUTTON2:{
-remove("import.txt");
-remove("export.txt");
-char txt[5024], txt1[2056], txt2[2056], txt3[2056], txt4[2056], txt5[2056]; 
-txt[0] = txt1[0] = txt2[0] = txt3[0] = txt4[0] = txt5[0] = '\0';
+                    case BUTTON1:{ // OPEN A PE FILE  
+                                    OPENFILENAME ofn;
+                                    char szFileName[MAX_PATH] = "";
+                                    SendDlgItemMessage(hwnd,BUTTON5, BN_CLICKED, (WPARAM)hBtn5,(LPARAM) hwnd);
+                                    ZeroMemory(&ofn, sizeof(ofn));
+                                    ofn.lStructSize = sizeof(ofn);
+                                    ofn.hwndOwner = hwnd;
+                                    ofn.lpstrFilter = "Executables (*.exe)\0*.exe\0Dll (*.dll)\0*.dll\0";
+                                    ofn.lpstrFile = szFileName;
+                                    ofn.nMaxFile = MAX_PATH;
+                                    ofn.Flags = OFN_EXPLORER | OFN_FILEMUSTEXIST | OFN_HIDEREADONLY;
+                                    ofn.lpstrDefExt = "";
+                                    if(GetOpenFileName(&ofn)){
+                                          SetDlgItemText(hwnd,EDIT1,szFileName);
+                                    }
+                    }break;
+                    case BUTTON2:{ // READS INFORMATIONF FROM PE HEADER
+                                    remove("import.txt");
+                                    remove("export.txt");
+                                    char txt[5024], txt1[2056], txt2[2056], txt3[2056], txt4[2056], txt5[2056]; 
+                                    txt[0] = txt1[0] = txt2[0] = txt3[0] = txt4[0] = txt5[0] = '\0';
  
-     int len = GetWindowTextLength (GetDlgItem (hwnd, EDIT1));
-      GetDlgItemText(hwnd,EDIT1,FileName, len + 1);                  
-      hFile = CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ, 0,
-      OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
-   if (hFile == INVALID_HANDLE_VALUE)
-   {
-      MessageBoxA(NULL,"Cannot Open the File","Error",MB_OK);
-      break;
-   }
-   FileSize = GetFileSize(hFile, NULL);
+                                    int len = GetWindowTextLength (GetDlgItem (hwnd, EDIT1));
+                                    GetDlgItemText(hwnd,EDIT1,FileName, len + 1);                  
+                                    hFile = CreateFile(FileName, GENERIC_READ, FILE_SHARE_READ, 0,OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+                                    if (hFile == INVALID_HANDLE_VALUE){
+                                          MessageBoxA(NULL,"Cannot Open the File","Error",MB_OK);break;
+                                    }
+                                    
+                                    FileSize = GetFileSize(hFile, NULL);
+                                    BaseAddress = (BYTE *) malloc(FileSize);
+                                    if (!ReadFile(hFile, BaseAddress, FileSize, &BR, NULL)){
+                                          free(BaseAddress);
+                                          CloseHandle(hFile);
+                                          break;
+                                    }
  
-   BaseAddress = (BYTE *) malloc(FileSize);
+                                    ImageDosHeader = (IMAGE_DOS_HEADER *) BaseAddress;
+                                    ImageOptionalHeader = (_IMAGE_OPTIONAL_HEADER *) BaseAddress;
+                                    
+                                    if (ImageDosHeader->e_magic != IMAGE_DOS_SIGNATURE) // checks the DOS SIGNATURE, if not equals to (MZ) then stops
+                                    {
+                                          MessageBoxA(NULL,"Invalid Dos Header","Error",MB_OK);
+                                          free(BaseAddress);
+                                          CloseHandle(hFile);
+                                          break;
+                                    }
  
-   if (!ReadFile(hFile, BaseAddress, FileSize, &BR, NULL))
-   {
-      free(BaseAddress);
-      CloseHandle(hFile);
-      break;
-   }
+                                    ImageNtHeaders = (IMAGE_NT_HEADERS *) (ImageDosHeader->e_lfanew + (DWORD) ImageDosHeader);
  
-   ImageDosHeader = (IMAGE_DOS_HEADER *) BaseAddress;
-   ImageOptionalHeader = (_IMAGE_OPTIONAL_HEADER *) BaseAddress;
-   // controlliamo il Dos Header
-   if (ImageDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
-   {
-      MessageBoxA(NULL,"Invalid Dos Header","Error",MB_OK);
-      free(BaseAddress);
-      CloseHandle(hFile);
-      break;
-   }
+                                    if (ImageNtHeaders->Signature != IMAGE_NT_SIGNATURE) // checks the PE header, if not equals to NT signature stops
+                                    {
+                                          MessageBoxA(NULL,"Invalid PE Signature","Error",MB_OK);
+                                          free(BaseAddress);
+                                          CloseHandle(hFile);
+                                          break;
+                                    }
  
-   ImageNtHeaders = (IMAGE_NT_HEADERS *)
-      (ImageDosHeader->e_lfanew + (DWORD) ImageDosHeader);
+                                    // takes the address of first section
+                                    ImageSectionHeader = IMAGE_FIRST_SECTION(ImageNtHeaders);
+                                    // shows the section table
+                                    for (x = 0; x < ImageNtHeaders->FileHeader.NumberOfSections; x++)
+                                    {
+                                          memcpy(SectionName, ImageSectionHeader[x].Name,IMAGE_SIZEOF_SHORT_NAME);
+                                          long lSize;
+                                          char * buffer;
+                                          size_t result;  
+                                          _ultoa(ImageSectionHeader[x].VirtualAddress,txt1,16);
+                                          _ultoa(ImageSectionHeader[x].Misc.VirtualSize,txt2,16);
+                                          _ultoa(ImageSectionHeader[x].PointerToRawData,txt3,16);
+                                          _ultoa(ImageSectionHeader[x].SizeOfRawData,txt4,16);
+                                          _ultoa(ImageSectionHeader[x].Characteristics,txt5,16);
+                                          
+                                          strcat(txt, "Section Name: ");
+                                          strcat(txt, SectionName);
+                                          strcat(txt , "\r\n");
+                                          strcat(txt, "Virtual Address: ");
+                                          strcat(txt, txt1);
+                                          strcat(txt , "\r\n");
+                                          strcat(txt, "Virtual Size: ");
+                                          strcat(txt, txt2);
+                                          strcat(txt , "\r\n"); 
+                                          strcat(txt, "Raw Address: ");
+                                          strcat(txt, txt3);
+                                          strcat(txt , "\r\n"); 
+                                          strcat(txt, "Raw Size: ");
+                                          strcat(txt, txt4);
+                                          strcat(txt , "\r\n");
+                                          strcat(txt, "Characteristics: ");
+                                          strcat(txt, txt5);
+                                          strcat(txt , "\r\n\r\n");
+                                          
+                                          SetDlgItemText(hwnd,EDIT2,txt);  
+                                 }
+                                 
+                                 /* VARIABLES USED TO STORE AND SHOW INFORMATIONS */
+                                 char Img[LENGTH],Img1[LENGTH];
+                                 char AeP[LENGTH],AeP1[LENGTH];
+                                 char BoC[LENGTH],BoC1[LENGTH];
+                                 char BoD[LENGTH],BoD1[LENGTH];
+                                 char Sa[LENGTH] ,Sa1[LENGTH];
+                                 char Fa[LENGTH] ,Fa1[LENGTH];
+                                 char Ss[LENGTH] ,Ss1[LENGTH];
+                                 char SoC[LENGTH],SoC1[LENGTH];
+                                 char SiD[LENGTH],SiD1[LENGTH];
+                                 char SuD[LENGTH],SuD1[LENGTH];
+                                 char Em[LENGTH] ,Em1[LENGTH];
+                                 char Sgn[LENGTH],Sgn1[LENGTH];
+                                 
+                                 Img[0], Img1[0], AeP[0], AeP1[0], BoC[0], BoC1[0], BoD[0], BoD1[0], Sa[0] , Sa1[0] , Fa[0],  Fa1[0] = '\0';
+                                 Ss[0] , Ss1[0] , SoC[0], SoC1[0], SiD[0], SiD1[0], SuD[0], SuD1[0], Em[0] , Em1[0] , Sgn[0], Sgn1[0] = '\0';
+                                 
+                                 for (int i = 0; i < LENGTH; i++){
+                                       Img[i] = '\0';
+                                       AeP[i] = '\0';
+                                       BoC[i] = '\0';
+                                       BoD[i] = '\0';
+                                       Sa[i] =  '\0';
+                                       Fa[i] =  '\0';
+                                       Ss[i] =  '\0';
+                                       SoC[i] = '\0';
+                                       SiD[i] = '\0';
+                                       SuD[i] = '\0';
+                                       Em[i] =  '\0';
+                                       Sgn[i] = '\0';
+                                 }
+                                 //STORES VALUES
+                                 DWORD ImageBase = ImageNtHeaders->OptionalHeader.ImageBase;
+                                 DWORD AddressOfEntryPoint = ImageNtHeaders->OptionalHeader.AddressOfEntryPoint;
+                                 DWORD BaseOfCode = ImageNtHeaders->OptionalHeader.BaseOfCode;
+                                 DWORD BaseOfData = ImageNtHeaders->OptionalHeader.BaseOfData;
+                                 DWORD SectionAlignment = ImageNtHeaders->OptionalHeader.SectionAlignment;
+                                 DWORD FileAlignment = ImageNtHeaders->OptionalHeader.FileAlignment;
+                                 DWORD Subsystem = ImageNtHeaders->OptionalHeader.Subsystem;
+                                 DWORD SizeOfCode = ImageNtHeaders->OptionalHeader.SizeOfCode;
+                                 DWORD SizeOfInitializedData = ImageNtHeaders->OptionalHeader.SizeOfInitializedData;
+                                 DWORD SizeOfUnitializedData = ImageNtHeaders->OptionalHeader.SizeOfUninitializedData;
+                                 DWORD EMagic = ImageDosHeader->e_magic;
+                                 DWORD Signature = ImageNtHeaders->Signature;
+                                 
+                                 /* CONVERT DWORD TO HEX ==> I REALLY LOVE THIS FUNCTION :P*/
+                                 _ultoa(ImageBase,Img1,16);
+                                 _ultoa(AddressOfEntryPoint,AeP1,16);
+                                 _ultoa(BaseOfCode,BoC1,16);
+                                 _ultoa(BaseOfData,BoD1,16);
+                                 _ultoa(SectionAlignment,Sa1,16);
+                                 _ultoa(FileAlignment,Fa1,16);
+                                 _ultoa(Subsystem,Ss1,16);
+                                 _ultoa(SizeOfCode,SoC1,16);
+                                 _ultoa(SizeOfInitializedData,SiD1,16);
+                                 _ultoa(SizeOfUnitializedData,SuD1,16);
+                                 _ultoa(EMagic,Em1,16);
+                                 _ultoa(Signature,Sgn1,16);
+                                 
+                                 strcat(Img,"ImageBase: 0x");
+                                 strcat(Img, Img1);
+                                 strcat(AeP, "AddressOfEntryPoint: 0x");
+                                 strcat(AeP, AeP1);
+                                 strcat(BoC, "BaseOfCode: 0x");
+                                 strcat(BoC, BoC1);
+                                 strcat(BoD, "BaseOfData: 0x");
+                                 strcat(BoD, BoD1);
+                                 strcat(Sa, "SectionAlignment: 0x");
+                                 strcat(Sa, Sa1);
+                                 strcat(Fa, "FileAlignment: 0x");
+                                 strcat(Fa, Fa1);      
+                                 strcat(Ss, "Subsystem: 0x");
+                                 strcat(Ss, Ss1);
+                                 strcat(SoC, "SizeOfCode: 0x");
+                                 strcat(SoC, SoC1);
+                                 strcat(SiD, "SizeOfInitializedData: 0x");
+                                 strcat(SiD, SiD1);
+                                 strcat(SuD, "SizeOfUnitializedData: 0x");
+                                 strcat(SuD, SuD1);
+                                 strcat(Em, "EMagic Signature: 0x");
+                                 strcat(Em, Em1);
+                                 strcat(Sgn, "PE Signature: 0x");
+                                 strcat(Sgn, Sgn1);
+                                 
+                                 SetDlgItemText(hwnd,LABEL5, Img);
+                                 SetDlgItemText(hwnd,LABEL6, AeP);
+                                 SetDlgItemText(hwnd,LABEL7, BoC);
+                                 SetDlgItemText(hwnd,LABEL8, BoD);
+                                 SetDlgItemText(hwnd,LABEL9, Sa);
+                                 SetDlgItemText(hwnd,LABEL10,Fa);
+                                 SetDlgItemText(hwnd,LABEL11,Ss);
+                                 SetDlgItemText(hwnd,LABEL12,SoC);
+                                 SetDlgItemText(hwnd,LABEL13,SiD);
+                                 SetDlgItemText(hwnd,LABEL14,SuD);
+                                 SetDlgItemText(hwnd,LABEL15,Em);
+                                 SetDlgItemText(hwnd,LABEL16,Sgn);    
+                                 /* INFORMATION */
+   
+                                 /* LOGS FROM IMPORT TABLE */
  
-   // controlliamo il PE Header
-   if (ImageNtHeaders->Signature != IMAGE_NT_SIGNATURE)
-   {
-      MessageBoxA(NULL,"Invalid PE Signature","Error",MB_OK);
-      free(BaseAddress);
-      CloseHandle(hFile);
-      break;
-   }
+                                 f = fopen("import.txt","wa");
+                                 IT_Offset = RvaToOffset(ImageNtHeaders,ImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+                                 ImageImportDescr = (IMAGE_IMPORT_DESCRIPTOR *) (IT_Offset + (DWORD) BaseAddress);
+                                 x = 0; // counter used under
+                                                
+                                 while (ImageImportDescr[x].FirstThunk != 0) // analyzes all  descriptors
+                                 {
+                                       Name = (char *) (RvaToOffset(ImageNtHeaders, ImageImportDescr[x].Name) + (DWORD) BaseAddress);
+                                       fprintf(f,"\nModule Name: %s\r\nFunctions:\r\n", Name);
  
-   // prende l'indirizzo della prima sezione
-   ImageSectionHeader = IMAGE_FIRST_SECTION(ImageNtHeaders);
-   // mostra la section table
-   for (x = 0; x < ImageNtHeaders->FileHeader.NumberOfSections; x++)
-   {
-      memcpy(SectionName, ImageSectionHeader[x].Name,
-         IMAGE_SIZEOF_SHORT_NAME);
-      long lSize;
-      char * buffer;
-      size_t result;  
-      _ultoa(ImageSectionHeader[x].VirtualAddress,txt1,16);
-      _ultoa(ImageSectionHeader[x].Misc.VirtualSize,txt2,16);
-      _ultoa(ImageSectionHeader[x].PointerToRawData,txt3,16);
-      _ultoa(ImageSectionHeader[x].SizeOfRawData,txt4,16);
-      _ultoa(ImageSectionHeader[x].Characteristics,txt5,16);
-      strcat(txt, "Section Name: ");
-      strcat(txt, SectionName);
-      strcat(txt , "\r\n");
-      strcat(txt, "Virtual Address: ");
-      strcat(txt, txt1);
-      strcat(txt , "\r\n");
-      strcat(txt, "Virtual Size: ");
-      strcat(txt, txt2);
-      strcat(txt , "\r\n"); 
-      strcat(txt, "Raw Address: ");
-      strcat(txt, txt3);
-      strcat(txt , "\r\n"); 
-      strcat(txt, "Raw Size: ");
-      strcat(txt, txt4);
-      strcat(txt , "\r\n");
-      strcat(txt, "Characteristics: ");
-      strcat(txt, txt5);
-      strcat(txt , "\r\n\r\n");
-      SetDlgItemText(hwnd,EDIT2,txt);   
-   }
-   /* INFORMATION */
-   char Img[LENGTH],Img1[LENGTH];
-   char AeP[LENGTH],AeP1[LENGTH];
-   char BoC[LENGTH],BoC1[LENGTH];
-   char BoD[LENGTH],BoD1[LENGTH];
-   char Sa[LENGTH] ,Sa1[LENGTH];
-   char Fa[LENGTH] ,Fa1[LENGTH];
-   char Ss[LENGTH] ,Ss1[LENGTH];
-   char SoC[LENGTH],SoC1[LENGTH];
-   char SiD[LENGTH],SiD1[LENGTH];
-   char SuD[LENGTH],SuD1[LENGTH];
-   char Em[LENGTH] ,Em1[LENGTH];
-   char Sgn[LENGTH],Sgn1[LENGTH];
-   Img[0], Img1[0], AeP[0], AeP1[0] = '\0';
-   BoC[0], BoC1[0], BoD[0], BoD1[0] = '\0';
-   Sa[0] , Sa1[0] , Fa[0],  Fa1[0]  = '\0';
-   Ss[0] , Ss1[0] , SoC[0], SoC1[0] = '\0';
-   SiD[0], SiD1[0], SuD[0], SuD1[0] = '\0';
-   Em[0] , Em1[0] , Sgn[0], Sgn1[0] = '\0';
-   for (int i = 0; i < LENGTH; i++){
-   Img[i] = '\0';
-   AeP[i] = '\0';
-   BoC[i] = '\0';
-   BoD[i] = '\0';
-   Sa[i] =  '\0';
-   Fa[i] =  '\0';
-   Ss[i] =  '\0';
-   SoC[i] = '\0';
-   SiD[i] = '\0';
-   SuD[i] = '\0';
-   Em[i] =  '\0';
-   Sgn[i] = '\0';
-}
-   DWORD ImageBase = ImageNtHeaders->OptionalHeader.ImageBase;
-   DWORD AddressOfEntryPoint = ImageNtHeaders->OptionalHeader.AddressOfEntryPoint;
-   DWORD BaseOfCode = ImageNtHeaders->OptionalHeader.BaseOfCode;
-   DWORD BaseOfData = ImageNtHeaders->OptionalHeader.BaseOfData;
-   DWORD SectionAlignment = ImageNtHeaders->OptionalHeader.SectionAlignment;
-   DWORD FileAlignment = ImageNtHeaders->OptionalHeader.FileAlignment;
-   DWORD Subsystem = ImageNtHeaders->OptionalHeader.Subsystem;
-   DWORD SizeOfCode = ImageNtHeaders->OptionalHeader.SizeOfCode;
-   DWORD SizeOfInitializedData = ImageNtHeaders->OptionalHeader.SizeOfInitializedData;
-   DWORD SizeOfUnitializedData = ImageNtHeaders->OptionalHeader.SizeOfUninitializedData;
-   DWORD EMagic = ImageDosHeader->e_magic;
-   DWORD Signature = ImageNtHeaders->Signature;
-   /* CONVERT DWORD TO HEX */
-   _ultoa(ImageBase,Img1,16);
-   _ultoa(AddressOfEntryPoint,AeP1,16);
-   _ultoa(BaseOfCode,BoC1,16);
-   _ultoa(BaseOfData,BoD1,16);
-   _ultoa(SectionAlignment,Sa1,16);
-   _ultoa(FileAlignment,Fa1,16);
-   _ultoa(Subsystem,Ss1,16);
-   _ultoa(SizeOfCode,SoC1,16);
-   _ultoa(SizeOfInitializedData,SiD1,16);
-   _ultoa(SizeOfUnitializedData,SuD1,16);
-   _ultoa(EMagic,Em1,16);
-   _ultoa(Signature,Sgn1,16);
-   strcat(Img,"ImageBase: 0x");
-   strcat(Img, Img1);
-   strcat(AeP, "AddressOfEntryPoint: 0x");
-   strcat(AeP, AeP1);
-   strcat(BoC, "BaseOfCode: 0x");
-   strcat(BoC, BoC1);
-   strcat(BoD, "BaseOfData: 0x");
-   strcat(BoD, BoD1);
-   strcat(Sa, "SectionAlignment: 0x");
-   strcat(Sa, Sa1);
-   strcat(Fa, "FileAlignment: 0x");
-   strcat(Fa, Fa1);      
-   strcat(Ss, "Subsystem: 0x");
-   strcat(Ss, Ss1);
-   strcat(SoC, "SizeOfCode: 0x");
-   strcat(SoC, SoC1);
-   strcat(SiD, "SizeOfInitializedData: 0x");
-   strcat(SiD, SiD1);
-   strcat(SuD, "SizeOfUnitializedData: 0x");
-   strcat(SuD, SuD1);
-   strcat(Em, "EMagic Signature: 0x");
-   strcat(Em, Em1);
-   strcat(Sgn, "PE Signature: 0x");
-   strcat(Sgn, Sgn1);
-   SetDlgItemText(hwnd,LABEL5, Img);
-   SetDlgItemText(hwnd,LABEL6, AeP);
-   SetDlgItemText(hwnd,LABEL7, BoC);
-   SetDlgItemText(hwnd,LABEL8, BoD);
-   SetDlgItemText(hwnd,LABEL9, Sa);
-   SetDlgItemText(hwnd,LABEL10,Fa);
-   SetDlgItemText(hwnd,LABEL11,Ss);
-   SetDlgItemText(hwnd,LABEL12,SoC);
-   SetDlgItemText(hwnd,LABEL13,SiD);
-   SetDlgItemText(hwnd,LABEL14,SuD);
-   SetDlgItemText(hwnd,LABEL15,Em);
-   SetDlgItemText(hwnd,LABEL16,Sgn);    
-   /* INFORMATION */
-   /* IMPORT TABLE */
+                                       // selects the array to analyze
+                                       Thunks = (DWORD *) (RvaToOffset(ImageNtHeaders, ImageImportDescr[x].OriginalFirstThunk != 0 ? ImageImportDescr[x].OriginalFirstThunk : ImageImportDescr[x].FirstThunk) + (DWORD) BaseAddress);
+                                       y = 0; // another counter
  
-f = fopen("import.txt","wa");
-IT_Offset = RvaToOffset(ImageNtHeaders,ImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
-ImageImportDescr = (IMAGE_IMPORT_DESCRIPTOR *) (IT_Offset +
-      (DWORD) BaseAddress);
-x = 0;
-   // passa in rassegna tutti i descriptors
-   while (ImageImportDescr[x].FirstThunk != 0)
-   {
-      Name = (char *) (RvaToOffset(ImageNtHeaders,
-         ImageImportDescr[x].Name) + (DWORD) BaseAddress);
+                                       // browse into internal functions of the analyzed file
+                                       while (Thunks[y] != 0)
+                                       {
+                                             //imports
+                                             if (Thunks[y] & IMAGE_ORDINAL_FLAG)
+                                             {
+                                                   fprintf(f,"Ordinal: %08X\r\n", (Thunks[y] - IMAGE_ORDINAL_FLAG));
+                                                   y++;
+                                                   continue;
+                                             }
  
-      fprintf(f,"\nModule Name: %s\r\nFunctions:\r\n", Name);
+                                       ImgName = (IMAGE_IMPORT_BY_NAME *) (RvaToOffset(ImageNtHeaders, Thunks[y]) + (DWORD) BaseAddress);
+                                       fprintf(f,"Name: %s\r\n", &ImgName->Name);
+                                       y++;
+                                       }
  
-      // guarda quale array considerare
-      Thunks = (DWORD *) (RvaToOffset(ImageNtHeaders,
-         ImageImportDescr[x].OriginalFirstThunk != 0 ?
-         ImageImportDescr[x].OriginalFirstThunk :
-       ImageImportDescr[x].FirstThunk) + (DWORD) BaseAddress);
+                                       x++;
+                                 } 
+                                 fflush(f);
+                                 fclose(f);
+                                 std::ifstream of("import.txt");
+                                 char *s;
+                                 char sf[LENGTH*50],sf1[LENGTH*50];
+                                 sf[0], sf1[0] = '\0';
+
+                                 while (of)
+                                 {
+                                       of.getline(sf,1000);
+                                       strcat(sf1,sf);
+                                       strcat(sf1,"\r\n");
+                                 }
+                                 SetDlgItemText(hwnd,EDIT3,sf1);
+                                 of.close();
+                                 remove("import.txt");
+                                 /* IMPORT TABLE */   
  
-      y = 0;
+                                 /* LOGS FROM EXPORT TABLE */
+                                 ET_Offset = RvaToOffset(ImageNtHeaders,ImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
+                                 ImageExportDir = (IMAGE_EXPORT_DIRECTORY *) (ET_Offset +(DWORD) BaseAddress);
+                                 Name = (char *) (RvaToOffset(ImageNtHeaders,ImageExportDir->Name) + (DWORD) BaseAddress);
+                                 Functions = (DWORD *) (RvaToOffset(ImageNtHeaders, ImageExportDir->AddressOfFunctions) + (DWORD) BaseAddress);
+                                 Names = (DWORD *) (RvaToOffset(ImageNtHeaders, ImageExportDir->AddressOfNames) + (DWORD) BaseAddress);
+                                 NameOrds = (WORD *) (RvaToOffset(ImageNtHeaders, ImageExportDir->AddressOfNameOrdinals) + (DWORD) BaseAddress);
  
-      // passa in rassegna le funzioni
-      while (Thunks[y] != 0)
-      {
-         // � importata per ordinal?
-         if (Thunks[y] & IMAGE_ORDINAL_FLAG)
-         {
-            fprintf(f,"Ordinal: %08X\r\n", (Thunks[y] -
-               IMAGE_ORDINAL_FLAG));
-            y++;
-            continue;
-         }
+                                 // enums and shows functions
  
-         ImgName = (IMAGE_IMPORT_BY_NAME *) (RvaToOffset(
-            ImageNtHeaders, Thunks[y]) + (DWORD) BaseAddress);
+                                 for (x = 0; x < ImageExportDir->NumberOfFunctions; x++)
+                                 {
+                                       // controllo se l'EP e' 0
+                                       // se si' allora passa alla prossima funzione
+                                       if (Functions[x] == 0)continue;
  
-         fprintf(f,"Name: %s\r\n", &ImgName->Name);
- 
-         y++;
-      }
- 
-      x++;
-   } 
- fflush(f);
- fclose(f);
- std::ifstream of("import.txt");
- char *s;
-char sf[LENGTH*50],sf1[LENGTH*50];
-sf[0] = '\0';
-sf1[0] = '\0';
-while (of) {
-of.getline(sf,1000);
-strcat(sf1,sf);
-strcat(sf1,"\r\n");
-}
-SetDlgItemText(hwnd,EDIT3,sf1);
-of.close();
-remove("import.txt");
-/* IMPORT TABLE */   
- 
-/* EXPORT TABLE */
-ET_Offset = RvaToOffset(ImageNtHeaders,ImageNtHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
-ImageExportDir = (IMAGE_EXPORT_DIRECTORY *) (ET_Offset +(DWORD) BaseAddress);
-Name = (char *) (RvaToOffset(ImageNtHeaders,ImageExportDir->Name) + (DWORD) BaseAddress);
-Functions = (DWORD *) (RvaToOffset(ImageNtHeaders,
-      ImageExportDir->AddressOfFunctions) + (DWORD) BaseAddress);
- 
-   Names = (DWORD *) (RvaToOffset(ImageNtHeaders,
-      ImageExportDir->AddressOfNames) + (DWORD) BaseAddress);
- 
-   NameOrds = (WORD *) (RvaToOffset(ImageNtHeaders,
-      ImageExportDir->AddressOfNameOrdinals) + (DWORD) BaseAddress);
- 
-   // enumera le funzioni
- 
-   for (x = 0; x < ImageExportDir->NumberOfFunctions; x++)
-   {
-      // controllo se l'EP � 0
-      // se s� allora passa alla prossima funzione
-      if (Functions[x] == 0)
-         continue;
- 
-      printf("\nOrd: %04X\nEP: %08X\n",
-         (x + ImageExportDir->Base), Functions[x]);
-      f=fopen("export.txt","a");
-    if (f != NULL) {
-        fprintf(f,"\nOrd: %04X\nEP: %08X\n",
-         (x + ImageExportDir->Base), Functions[x] );
-        fflush(f);
-      }
-      // vedo se la funzione ha anche un nome
-      for (y = 0; y < ImageExportDir->NumberOfNames; y++)
-      {
-         // trovata una funzione con nome?
-         if (NameOrds[y] == x)
-         {
-            FName = (char *) (RvaToOffset(ImageNtHeaders,
-               Names[y]) + (DWORD) BaseAddress);
-            printf("Name: %s\n", FName);
-         if (f != NULL) {
-        fprintf(f,"Name: %s\n", FName);
-        fflush(f);
-        fclose(f);
-      }
-            break;
-         }
-      }
-   }
-std::ifstream of1("export.txt");
-char sf2[LENGTH*80],sf3[LENGTH*80];
-sf2[0] = '\0';
-sf3[0] = '\0';
-while (of1) {
-of1.getline(sf2,1000);
-strcat(sf3,sf2);
-strcat(sf3,"\r\n");
-}
-SetDlgItemText(hwnd,EDIT4,sf3);
-of1.close();
-remove("export.txt");
-/* EXPORT TABLE */
-   free(BaseAddress);
-   CloseHandle(hFile);
-                         }break;    // fine case BUTTON2                      
+                                       printf("\nOrd: %04X\nEP: %08X\n", (x + ImageExportDir->Base), Functions[x]);
+                                       f=fopen("export.txt","a");
+                                       
+                                       if (f != NULL) {
+                                             fprintf(f,"\nOrd: %04X\nEP: %08X\n", (x + ImageExportDir->Base), Functions[x] );
+                                             fflush(f);
+                                       }
+                                       
+                                       // if the function has also a name I show it
+                                       for (y = 0; y < ImageExportDir->NumberOfNames; y++)
+                                       {
+                                             if (NameOrds[y] == x)
+                                             {
+                                                   FName = (char *) (RvaToOffset(ImageNtHeaders, Names[y]) + (DWORD) BaseAddress);
+                                                   printf("Name: %s\n", FName);
+                                                   if (f != NULL) 
+                                                   {
+                                                         fprintf(f,"Name: %s\n", FName);
+                                                         fflush(f);
+                                                         fclose(f);
+                                                   }
+                                             break;
+                                             }
+                                       }
+                                 }
+                                 
+                                 std::ifstream of1("export.txt");
+                                 char sf2[LENGTH*80],sf3[LENGTH*80];
+                                 sf2[0], sf3[0] = '\0';
+
+                                 while (of1) 
+                                 {
+                                       of1.getline(sf2,1000);
+                                       strcat(sf3,sf2);
+                                       strcat(sf3,"\r\n");
+                                 }
+                                 SetDlgItemText(hwnd,EDIT4,sf3);
+                                 of1.close();
+                                 remove("export.txt");
+                                 /* EXPORT TABLE */
+   
+                                 free(BaseAddress);
+                                 CloseHandle(hFile);
+                         }break; // end case BUTTON2   
+                         
                          case BUTTON3:{PostQuitMessage (0);break;}
+                         
                          case BUTTON4:{
  
    HANDLE hFile;
