@@ -5,16 +5,16 @@
 ********** informations from any PE file, such as EXEs and DLLs.
 ********** 
 ********** Skills:
-**********					- Logs PE's header informations
-**********					- Logs API and functions imported by the file
-**********					- Logs function exported by the file (if any)
+**********				- Logs PE's header informations
+**********				- Logs API and functions imported by the file
+**********				- Logs function exported by the file (if any)
 **********
 ********** In the next versions:
-**********					- Hex viewer and editor
-**********					- Protections/packers scanner and identifier
+**********				- Hex viewer and editor
+**********				- Protections/packers scanner and identifier
 **********
-********** Author:			- Marco Lagalla - aka Zyrel
+********** Author:		- Marco Lagalla - aka Zyrel
 ********** Distribuited on:
-********** 					- GitHub.com -
-**********					- Unfair-gamers.com -
+********** 				- GitHub.com -
+**********				- Unfair-gamers.com -
 ***********************************************************************/
