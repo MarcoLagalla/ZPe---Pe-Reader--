@@ -8,7 +8,7 @@
 **********				- Logs PE's header informations
 **********				- Logs API and functions imported by the file
 **********				- Logs function exported by the file (if any)
-**********        - Allows to add a new section into the file
+**********            - Allows to add a new section into the file
 **********
 ********** In the next versions:
 **********				- Hex viewer and editor
