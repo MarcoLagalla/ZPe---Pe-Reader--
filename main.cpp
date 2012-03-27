@@ -469,150 +469,145 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                          
                          case BUTTON4:{
  
-   HANDLE hFile;
-   BYTE *BaseAddress;
-   WORD nSection;
-   DWORD FileSize, BRW, NameSize, Size;
+                                 HANDLE hFile;
+                                 BYTE *BaseAddress;
+                                 WORD nSection;
+                                 DWORD FileSize, BRW, NameSize, Size;
+                                 char Dim[MAX_PATH], Sect[MAX_PATH];
+                                 int len, lent;
+                                  
+                                 IMAGE_DOS_HEADER *ImageDosHeader;
+                                 IMAGE_NT_HEADERS *ImageNtHeaders;
+                                 IMAGE_SECTION_HEADER *ImageSectionHeader;
  
-   IMAGE_DOS_HEADER *ImageDosHeader;
-   IMAGE_NT_HEADERS *ImageNtHeaders;
-   IMAGE_SECTION_HEADER *ImageSectionHeader;
+                                 len = GetWindowTextLength (GetDlgItem (hwnd, EDIT6));
+                                 GetDlgItemText(hwnd,EDIT6,Dim, len + 1);  
+                                 lent = GetWindowTextLength (GetDlgItem (hwnd, EDIT5));
+                                 GetDlgItemText(hwnd,EDIT5,Sect, lent + 1);   
+                                 Size = atoi(Dim);
  
-   char Dim[MAX_PATH];
-   int len = GetWindowTextLength (GetDlgItem (hwnd, EDIT6));
-   GetDlgItemText(hwnd,EDIT6,Dim, len + 1);  
-   char Sect[MAX_PATH];
-int lent = GetWindowTextLength (GetDlgItem (hwnd, EDIT5));
-   GetDlgItemText(hwnd,EDIT5,Sect, lent + 1);   
-   Size = atoi(Dim);
+                                 if (Size > 0 && lent > 0) 
+                                 {
  
-   if (Size > 0 && lent > 0) {
+                                       hFile = CreateFile(FileName, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
  
-   hFile = CreateFile(FileName, GENERIC_READ | GENERIC_WRITE,
-      FILE_SHARE_READ, 0, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, 0);
+                                       if (hFile == INVALID_HANDLE_VALUE)
+                                       {
+                                             printf("Cannot Open the File\n");
+                                             return -1;
+                                       }
  
-   if (hFile == INVALID_HANDLE_VALUE)
-   {
-      printf("Cannot Open the File\n");
-      return -1;
-   }
+                                       FileSize = GetFileSize(hFile, NULL);
+                                       BaseAddress = (BYTE *) malloc(FileSize);
  
-   FileSize = GetFileSize(hFile, NULL);
+                                       if (!ReadFile(hFile, BaseAddress, FileSize, &BRW, NULL))
+                                       {
+                                             free(BaseAddress);
+                                             CloseHandle(hFile);
+                                             return -1;
+                                       }
  
-   BaseAddress = (BYTE *) malloc(FileSize);
+                                       ImageDosHeader = (IMAGE_DOS_HEADER *) BaseAddress;
+                                       ImageOptionalHeader = (_IMAGE_OPTIONAL_HEADER *) BaseAddress;
+                                    
+                                       if (ImageDosHeader->e_magic != IMAGE_DOS_SIGNATURE) // checks the DOS SIGNATURE, if not equals to (MZ) then stops
+                                       {
+                                             MessageBoxA(NULL,"Invalid Dos Header","Error",MB_OK);
+                                             free(BaseAddress);
+                                             CloseHandle(hFile);
+                                             break;
+                                       }
  
-   if (!ReadFile(hFile, BaseAddress, FileSize, &BRW, NULL))
-   {
-      free(BaseAddress);
-      CloseHandle(hFile);
-      return -1;
-   }
+                                       ImageNtHeaders = (IMAGE_NT_HEADERS *) (ImageDosHeader->e_lfanew + (DWORD) ImageDosHeader);
  
-   ImageDosHeader = (IMAGE_DOS_HEADER *) BaseAddress;
-/* le signature le avevo gi� controllate ma lo rifaccio per 
-evitare che possa insorgere qualche erorre strano */
+                                       if (ImageNtHeaders->Signature != IMAGE_NT_SIGNATURE) // checks the PE header, if not equals to NT signature stops
+                                       {
+                                             MessageBoxA(NULL,"Invalid PE Signature","Error",MB_OK);
+                                             free(BaseAddress);
+                                             CloseHandle(hFile);
+                                             break;
+                                       }
  
-   // controlliamo il Dos Header
-   if (ImageDosHeader->e_magic != IMAGE_DOS_SIGNATURE)
-   {
-      printf("Invalid Dos Header\n");
-      free(BaseAddress);
-      CloseHandle(hFile);
-      return -1;
-   }
+                                       // prende le dimensioni
+                                       printf("Creating New Section...\n");
  
-   ImageNtHeaders = (IMAGE_NT_HEADERS *)
-      (ImageDosHeader->e_lfanew + (DWORD) ImageDosHeader);
+                                       nSection = ImageNtHeaders->FileHeader.NumberOfSections;
+                                       ImageNtHeaders->FileHeader.NumberOfSections++;
+                                       ImageSectionHeader = IMAGE_FIRST_SECTION(ImageNtHeaders);
+                                       ImageNtHeaders->OptionalHeader.SizeOfImage += CalcAlignment(ImageNtHeaders->OptionalHeader.SectionAlignment, Size);
+                                       ZeroMemory(&ImageSectionHeader[nSection], IMAGE_SIZEOF_SECTION_HEADER);
  
-   // controlliamo il PE Header
-   if (ImageNtHeaders->Signature != IMAGE_NT_SIGNATURE)
-   {
-      printf("Invalid PE Header\n");
-      free(BaseAddress);
-      CloseHandle(hFile);
-      return -1;
-   }
+                                       if (strlen(Sect) <= IMAGE_SIZEOF_SHORT_NAME)
+                                       {
+                                             NameSize = strlen(Sect);
+                                       }
+                                       else
+                                       {
+                                             NameSize = IMAGE_SIZEOF_SHORT_NAME;   
+                                       }
+      
+                                       memcpy(&ImageSectionHeader[nSection].Name, Sect, NameSize);
  
-   // prende le dimensioni
+                                       // calcola il Virtual Address della nuova sezione
+                                       ImageSectionHeader[nSection].VirtualAddress = CalcAlignment(ImageNtHeaders->OptionalHeader.SectionAlignment, (ImageSectionHeader[nSection - 1].VirtualAddress + ImageSectionHeader[nSection - 1].Misc.VirtualSize));
+                                       ImageSectionHeader[nSection].Misc.VirtualSize = Size;
  
+                                       if (ImageSectionHeader[nSection - 1].SizeOfRawData % ImageNtHeaders->OptionalHeader.FileAlignment)
+                                       {
+                                       // se la sezione prima di quella che vogliamo creare noi non � allineata lo faccio
+                                             ImageSectionHeader[nSection - 1].SizeOfRawData = CalcAlignment(ImageNtHeaders->OptionalHeader.FileAlignment, ImageSectionHeader[nSection - 1].SizeOfRawData);
+                                             SetFilePointer(hFile,(ImageSectionHeader[nSection - 1].PointerToRawData + ImageSectionHeader[nSection - 1].SizeOfRawData), NULL, FILE_BEGIN);
+                                             SetEndOfFile(hFile);
+                                       }
  
-   printf("Creating New Section...\n");
+                                       ImageSectionHeader[nSection].PointerToRawData = GetFileSize(hFile, NULL);
+                                       ImageSectionHeader[nSection].SizeOfRawData = CalcAlignment(ImageNtHeaders->OptionalHeader.FileAlignment, Size);
+                                       ImageSectionHeader[nSection].Characteristics = IMAGE_SCN_MEM_READ;
+                                       SetFilePointer(hFile, ImageSectionHeader[nSection].SizeOfRawData,NULL, FILE_END);
+                                       SetEndOfFile(hFile);
  
-   nSection = ImageNtHeaders->FileHeader.NumberOfSections;
-   ImageNtHeaders->FileHeader.NumberOfSections++;
-   ImageSectionHeader = IMAGE_FIRST_SECTION(ImageNtHeaders);
-   ImageNtHeaders->OptionalHeader.SizeOfImage +=
-      CalcAlignment(ImageNtHeaders->OptionalHeader.SectionAlignment, Size);
- 
-   ZeroMemory(&ImageSectionHeader[nSection],
-      IMAGE_SIZEOF_SECTION_HEADER);
- 
- 
-   if (strlen(Sect) <= IMAGE_SIZEOF_SHORT_NAME)
-      NameSize = strlen(Sect);
-   else
-      NameSize = IMAGE_SIZEOF_SHORT_NAME;
- 
-   memcpy(&ImageSectionHeader[nSection].Name, Sect, NameSize);
- 
- 
-   // calcola il Virtual Address della nuova sezione
-   ImageSectionHeader[nSection].VirtualAddress =
-      CalcAlignment(ImageNtHeaders->OptionalHeader.SectionAlignment,
-      (ImageSectionHeader[nSection - 1].VirtualAddress +
-      ImageSectionHeader[nSection - 1].Misc.VirtualSize));
- 
- 
-   ImageSectionHeader[nSection].Misc.VirtualSize = Size;
- 
-   if (ImageSectionHeader[nSection - 1].SizeOfRawData %
-    ImageNtHeaders->OptionalHeader.FileAlignment)
-   {
-      // se la sezione prima di quella che vogliamo creare noi non � allineata lo faccio
-      ImageSectionHeader[nSection - 1].SizeOfRawData =
-         CalcAlignment(ImageNtHeaders->OptionalHeader.FileAlignment,
-         ImageSectionHeader[nSection - 1].SizeOfRawData);
- 
-      SetFilePointer(hFile,
-         (ImageSectionHeader[nSection - 1].PointerToRawData +
-         ImageSectionHeader[nSection - 1].SizeOfRawData), NULL,
-         FILE_BEGIN);
- 
-      SetEndOfFile(hFile);
-   }
- 
-   ImageSectionHeader[nSection].PointerToRawData = GetFileSize(hFile, NULL);
-   ImageSectionHeader[nSection].SizeOfRawData = CalcAlignment(ImageNtHeaders->OptionalHeader.FileAlignment, Size);
-   ImageSectionHeader[nSection].Characteristics = IMAGE_SCN_MEM_READ;
-   SetFilePointer(hFile, ImageSectionHeader[nSection].SizeOfRawData,NULL, FILE_END);
-   SetEndOfFile(hFile);
- 
-   // salvo le modifiche
-   SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
-   WriteFile(hFile, BaseAddress, FileSize, &BRW, NULL);
-   MessageBox(NULL,"The section has been successfully added!","Info",MB_OK); 
-   free(BaseAddress);
-   CloseHandle(hFile);}
-   else {
-   MessageBox(NULL,"The section was not added correctly <img src="images/smilies1/sad.gif" style="vertical-align: middle;" border="0" alt="Sad" title="Sad" />","Error",MB_OK); }   
+                                       // salvo le modifiche
+                                       SetFilePointer(hFile, 0, NULL, FILE_BEGIN);
+                                       WriteFile(hFile, BaseAddress, FileSize, &BRW, NULL);
+                                       MessageBox(NULL,"The section has been successfully added!","Info",MB_OK); 
+                                       free(BaseAddress);
+                                       CloseHandle(hFile);
+                                       
+                                 }
+                                 else 
+                                 {
+                                       MessageBox(NULL,"The section was not added correctly!","Error",MB_OK);                                       
+                                 }   
  
  
-}break; // fine button 4
-           case BUTTON5:{
-                MessageBoxA(NULL,"Program created by Zyrel aka Marco Lagalla.\nVisit us on: <a href="http://www.unfair-gamers.com" target="_blank">http://www.unfair-gamers.com</a>!\nThanks to Ntoskrnl <img src="images/smilies1/wink1.gif" style="vertical-align: middle;" border="0" alt="Wink" title="Wink" />","Credits and Disclaimer",MB_OK);
-                }break;
-           case BUTTON6:{
-                ShellExecute(NULL,"open","http://www.unfair-gamers.com/forum/index.php",NULL,NULL,SW_HIDE);
-                }break;
-                default:{break;} // DEFAUL CONTROLLI
+                  }break; // fine button 4
+                  
+                  case BUTTON5:
+                  {
+                        MessageBoxA(NULL,"Program created by Zyrel aka Marco Lagalla.\nVisit us on: <a href="http://www.unfair-gamers.com" target="_blank">http://www.unfair-gamers.com</a>!\nThanks to Ntoskrnl <img src="images/smilies1/wink1.gif" style="vertical-align: middle;" border="0" alt="Wink" title="Wink" />","Credits and Disclaimer",MB_OK);
+                  }break;
+                  
+                  case BUTTON6:
+                  {
+                        ShellExecute(NULL,"open","http://www.unfair-gamers.com/forum/index.php",NULL,NULL,SW_HIDE);
+                  }break;
+                  
+                  default:{break;} // DEFAUL CONTROLLI
              }break;} // FINE WM_COMMAND
-        case WM_DESTROY:
-            PostQuitMessage (0);       /* send a WM_QUIT to the message queue */
-            break;
-        default:                      /* for messages that we don't deal with */
+            
+            case WM_DESTROY:
+            {
+                  PostQuitMessage (0);
+            
+            }break;     /* send a WM_QUIT to the message queue */
+            
+            default:                      /* for messages that we don't deal with */
             return DefWindowProc (hwnd, message, wParam, lParam);
-        case WM_CTLCOLORSTATIC:
-             SetTextColor((HDC)hLabel2,RGB(141,149,155)); 
+            
+            case WM_CTLCOLORSTATIC:
+            {
+               SetTextColor((HDC)hLabel2,RGB(141,149,155)); 
+            } 
     }
  
     return 0;
